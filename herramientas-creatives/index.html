@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Animaledit — Editor de imágenes</title>
+<style>
+  :root {
+    --bg: #0f0f12;
+    --panel: #1a1a1f;
+    --panel-hover: #232329;
+    --border: #2d2d35;
+    --text: #f5f5f5;
+    --muted: #8b8b95;
+    --accent: #8b5cf6;
+    --accent-hover: #7c3aed;
+    --success: #22c55e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+  body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
+
+  /* Layout */
+  .app { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    background: var(--panel); border-right: 1px solid var(--border);
+    overflow-y: auto; padding: 20px;
+  }
+  .sidebar::-webkit-scrollbar { width: 6px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ===== LOGO CUADRADO Y VISIBLE ===== */
+  .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
+  .logo-img {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #8b5cf6, #ec4899);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 2px rgba(139,92,246,.35);
+  }
+  .logo-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .logo h1 { font-size: 18px; font-weight: 700; }
+  .logo small { display: block; font-size: 10px; color: var(--muted); font-weight: 400; }
+
+  .section { margin-bottom: 20px; }
+  .section-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted); font-weight: 600; margin-bottom: 10px;
+  }
+
+  /* Sliders */
+  .slider-group { margin-bottom: 12px; }
+  .slider-label {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--text); margin-bottom: 6px;
+  }
+  .slider-label .value { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+  input[type="range"] {
+    width: 100%; height: 4px; border-radius: 2px;
+    background: var(--border); outline: none;
+    -webkit-appearance: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--accent); cursor: pointer;
+    border: 2px solid var(--panel);
+    transition: transform .15s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+  /* Filters grid */
+  .filters-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  }
+  .filter-btn {
+    aspect-ratio: 1; border-radius: 10px; border: 2px solid var(--border);
+    background: var(--bg); cursor: pointer; overflow: hidden;
+    position: relative; padding: 0; transition: all .15s;
+  }
+  .filter-btn:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .filter-btn.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(139,92,246,.3); }
+  .filter-btn .preview {
+    width: 100%; height: 100%;
+    background: linear-gradient(135deg, #8b5cf6, #ec4899, #f59e0b);
+  }
+  .filter-btn .label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,.7); color: white;
+    font-size: 9px; padding: 3px; text-align: center;
+    font-weight: 500;
+  }
+
+  /* Buttons */
+  .btn {
+    width: 100%; padding: 10px 16px; border-radius: 10px;
+    border: none; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-secondary { background: var(--panel-hover); color: var(--text); }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-ghost { background: none; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+  .btn-group { display: flex; gap: 8px; margin-top: 10px; }
+
+  /* Main canvas area */
+  .main {
+    display: flex; flex-direction: column;
+    /* ===== FONDO ESCALA DE COLORES FRÍOS ===== */
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 35%, #1e3a8a 70%, #0e7490 100%);
+    position: relative; overflow: hidden;
+  }
+  .toolbar {
+    padding: 12px 20px; background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+    flex-shrink: 0;
+  }
+  .toolbar-left { display: flex; gap: 8px; align-items: center; }
+  .toolbar-title { font-size: 13px; color: var(--muted); }
+  .toolbar-actions { display: flex; gap: 8px; }
+  .toolbar-actions .btn { width: auto; padding: 8px 16px; font-size: 12px; }
+
+  .canvas-area {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 20px; position: relative; overflow: hidden;
+  }
+
+  /* ===== WRAPPER CON DIMENSIONES FIJAS ===== */
+  .canvas-wrapper {
+    position: relative;
+    width: min(100%, 900px);
+    height: min(100%, 620px);
+    max-width: 100%;
+    max-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    border-radius: 6px;
+    overflow: hidden;
+    background: repeating-conic-gradient(#1a1a1f 0% 25%, #232329 0% 50%) 50% / 20px 20px;
+    flex-shrink: 0;
+  }
+
+  /* El canvas se escala DENTRO del wrapper, sin cambiar el layout */
+  #canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+  }
+
+  /* Text overlay */
+  .text-overlay {
+    position: absolute; cursor: move; user-select: none;
+    padding: 4px 8px; white-space: nowrap;
+  }
+
+  /* Drop zone */
+  .drop-zone {
+    position: absolute; inset: 20px;
+    border: 2px dashed var(--border); border-radius: 16px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 40px; transition: all .2s;
+    background: rgba(255,255,255,.02);
+    backdrop-filter: blur(2px);
+  }
+  .drop-zone.dragover { border-color: var(--accent); background: rgba(139,92,246,.1); }
+  .drop-zone .icon { font-size: 64px; margin-bottom: 16px; opacity: .7; }
+  .drop-zone h2 { font-size: 20px; margin-bottom: 8px; }
+  .drop-zone p { color: var(--muted); font-size: 14px; margin-bottom: 24px; max-width: 400px; }
+  .demo-images { display: flex; gap: 12px; margin-top: 16px; }
+  .demo-img {
+    width: 80px; height: 80px; border-radius: 10px; cursor: pointer;
+    border: 2px solid var(--border); transition: all .15s; overflow: hidden;
+  }
+  .demo-img:hover { border-color: var(--accent); transform: scale(1.05); }
+  .demo-img img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* Text controls */
+  .text-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .text-controls input, .text-controls select {
+    padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 12px;
+  }
+  .text-controls input[type="color"] {
+    padding: 4px; height: 34px; cursor: pointer;
+  }
+
+  /* Aspect ratio buttons */
+  .ratio-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .ratio-btn {
+    padding: 8px 4px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 11px;
+    cursor: pointer; transition: all .15s; font-weight: 500;
+  }
+  .ratio-btn:hover { border-color: var(--accent); }
+  .ratio-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+  /* Empty state in controls */
+  .controls-disabled { opacity: .4; pointer-events: none; }
+
+  /* Quality selector */
+  .quality-row {
+    display: flex; align-items: center; gap: 10px; margin-top: 8px;
+    font-size: 12px; color: var(--muted);
+  }
+  .quality-row select {
+    flex: 1; padding: 6px 8px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    font-size: 12px;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: var(--text); color: var(--bg); padding: 12px 24px;
+    border-radius: 10px; font-size: 13px; font-weight: 600;
+    opacity: 0; transition: all .3s; z-index: 9999; pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* Mobile */
+  @media (max-width: 800px) {
+    .app { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+    .sidebar { order: 2; max-height: 45vh; border-right: none; border-top: 1px solid var(--border); }
+    .main { order: 1; }
+    .filters-grid { grid-template-columns: repeat(4, 1fr); }
+    .canvas-wrapper { width: 100%; height: 60vh; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <!-- ===== LOGO CUADRADO ===== -->
+    <div class="logo">
+      <div class="logo-img">
+        <img src="animales.jpg" alt="Animaledit">
+      </div>
+      <div>
+        <h1>Animaledit</h1>
+        <small>Editor creativo</small>
+      </div>
+    </div>
+
+    <!-- Drop zone en sidebar (para mobile) -->
+    <div id="dropSidebar" class="hidden section">
+      <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">
+        🖼️ Cambiar imagen
+      </button>
+      <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(event)">
+    </div>
+
+    <!-- Controles (ocultos hasta cargar imagen) -->
+    <div id="controls" class="controls-disabled">
+      <!-- Filtros -->
+      <div class="section">
+        <div class="section-title">🎭 Filtros</div>
+        <div class="filters-grid" id="filtersGrid"></div>
+      </div>
+
+      <!-- Ajustes -->
+      <div class="section">
+        <div class="section-title">🎚️ Ajustes</div>
+        <div class="slider-group">
+          <div class="slider-label"><span>Brillo</span><span class="value" id="brightnessVal">100%</span></div>
+          <input type="range" id="brightness" min="0" max="200" value="100" oninput="updateFilters()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>Contraste</span><span class="value" id="contrastVal">100%</span></div>
+          <input type="range" id="contrast" min="0" max="200" value="100" oninput="updateFilters()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>Saturación</span><span class="value" id="saturateVal">100%</span></div>
+          <input type="range" id="saturate" min="0" max="200" value="100" oninput="updateFilters()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>Hue</span><span class="value" id="hueVal">0°</span></div>
+          <input type="range" id="hue" min="-180" max="180" value="0" oninput="updateFilters()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>Blur</span><span class="value" id="blurVal">0px</span></div>
+          <input type="range" id="blur" min="0" max="20" value="0" oninput="updateFilters()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>Rotación</span><span class="value" id="rotateVal">0°</span></div>
+          <input type="range" id="rotate" min="-180" max="180" value="0" oninput="updateFilters()">
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span>Escala</span><span class="value" id="scaleVal">100%</span></div>
+          <input type="range" id="scale" min="50" max="200" value="100" oninput="updateFilters()">
+        </div>
+      </div>
+
+      <!-- Recorte -->
+      <div class="section">
+        <div class="section-title">✂️ Aspect ratio</div>
+        <div class="ratio-grid">
+          <button class="ratio-btn active" data-ratio="free" onclick="setRatio('free')">Libre</button>
+          <button class="ratio-btn" data-ratio="1" onclick="setRatio('1')">1:1</button>
+          <button class="ratio-btn" data-ratio="16/9" onclick="setRatio('16/9')">16:9</button>
+          <button class="ratio-btn" data-ratio="4/3" onclick="setRatio('4/3')">4:3</button>
+        </div>
+      </div>
+
+      <!-- Texto -->
+      <div class="section">
+        <div class="section-title">✏️ Texto</div>
+        <div class="text-controls">
+          <input id="textInput" placeholder="Escribe algo..." style="grid-column: span 2">
+          <select id="fontSelect">
+            <option value="system-ui">Sans</option>
+            <option value="Georgia, serif">Serif</option>
+            <option value="'Courier New', monospace">Mono</option>
+            <option value="Impact, sans-serif">Impact</option>
+          </select>
+          <input type="number" id="fontSize" value="32" min="8" max="200" placeholder="Tamaño">
+          <input type="color" id="textColor" value="#ffffff">
+          <input type="color" id="textStroke" value="#000000">
+        </div>
+        <button class="btn btn-secondary" onclick="addText()" style="margin-top:8px">
+          + Agregar texto
+        </button>
+      </div>
+
+      <!-- Descargar -->
+      <div class="section">
+        <div class="section-title">💾 Exportar</div>
+        <button class="btn btn-primary" onclick="download()">
+          ⬇️ Descargar imagen
+        </button>
+        <div class="quality-row">
+          <span>Calidad:</span>
+          <select id="quality">
+            <option value="1">Alta (PNG)</option>
+            <option value="0.9">Media (JPG 90%)</option>
+            <option value="0.7">Baja (JPG 70%)</option>
+          </select>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-ghost" onclick="resetAll()">🔄 Reset</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <span class="toolbar-title" id="toolbarInfo">Sin imagen cargada</span>
+      </div>
+      <div class="toolbar-actions">
+        <button class="btn btn-secondary" onclick="undoText()" id="undoBtn" style="display:none">↶ Deshacer texto</button>
+      </div>
+    </div>
+
+    <div class="canvas-area" id="canvasArea">
+      <div class="drop-zone" id="dropZone">
+        <div class="icon">🖼️</div>
+        <h2>Arrastrá una imagen acá</h2>
+        <p>O elegí un archivo desde tu dispositivo. Todo se procesa localmente, nada se sube a internet.</p>
+        <button class="btn btn-primary" style="width:auto;padding:12px 32px" onclick="document.getElementById('fileInput').click()">
+          📁 Elegir imagen
+        </button>
+        <p style="margin-top:24px;font-size:12px">O probá con una demo:</p>
+        <div class="demo-images">
+          <div class="demo-img" onclick="loadDemo('mountain')">
+            <div style="width:100%;height:100%;background:linear-gradient(135deg,#3b82f6,#8b5cf6,#ec4899)"></div>
+          </div>
+          <div class="demo-img" onclick="loadDemo('sunset')">
+            <div style="width:100%;height:100%;background:linear-gradient(135deg,#f59e0b,#ef4444,#8b5cf6)"></div>
+          </div>
+          <div class="demo-img" onclick="loadDemo('forest')">
+            <div style="width:100%;height:100%;background:linear-gradient(135deg,#16a34a,#065f46,#1e3a8a)"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="canvas-wrapper hidden" id="canvasWrapper">
+        <canvas id="canvas"></canvas>
+      </div>
+    </div>
+  </main>
+</div>
+
+<input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(event)">
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ ESTADO ============
+let state = {
+  img: null,
+  imgWidth: 0,
+  imgHeight: 0,
+  filters: {
+    brightness: 100, contrast: 100, saturate: 100,
+    hue: 0, blur: 0, rotate: 0, scale: 100
+  },
+  activePreset: 'none',
+  ratio: 'free',
+  texts: [],
+  history: []
+};
+
+// ===== Flag para controlar el tamaño intrínseco del canvas =====
+let canvasSized = false;
+
+const PRESETS = {
+  none:     { label: 'Original',  filter: 'none' },
+  vintage:  { label: 'Vintage',   filter: 'sepia(0.5) contrast(1.1) brightness(0.95)' },
+  bw:       { label: 'B&N',       filter: 'grayscale(1) contrast(1.2)' },
+  sepia:    { label: 'Sepia',     filter: 'sepia(0.8) saturate(1.2)' },
+  cold:     { label: 'Frío',      filter: 'hue-rotate(180deg) saturate(1.3) brightness(1.05)' },
+  warm:     { label: 'Cálido',    filter: 'sepia(0.3) saturate(1.5) brightness(1.1)' },
+  dramatic: { label: 'Drama',     filter: 'contrast(1.5) brightness(0.9) saturate(1.2)' },
+  dreamy:   { label: 'Dreamy',    filter: 'blur(1px) brightness(1.1) saturate(1.3)' }
+};
+
+// ============ INICIO ============
+renderFilters();
+setupDragDrop();
+
+function renderFilters() {
+  const grid = document.getElementById('filtersGrid');
+  grid.innerHTML = Object.entries(PRESETS).map(([key, preset]) => `
+    <button class="filter-btn ${key === 'none' ? 'active' : ''}" data-preset="${key}" onclick="setPreset('${key}')">
+      <div class="preview" style="filter:${preset.filter}"></div>
+      <div class="label">${preset.label}</div>
+    </button>
+  `).join('');
+}
+
+// ============ CARGA ============
+function setupDragDrop() {
+  const zone = document.getElementById('dropZone');
+  const area = document.getElementById('canvasArea');
+
+  ['dragenter', 'dragover'].forEach(evt => {
+    area.addEventListener(evt, e => {
+      e.preventDefault();
+      zone.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach(evt => {
+    area.addEventListener(evt, e => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+    });
+  });
+  area.addEventListener('drop', e => {
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) loadFile(file);
+  });
+}
+
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (file) loadFile(file);
+}
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = evt => loadImageFromSrc(evt.target.result);
+  reader.readAsDataURL(file);
+}
+
+function loadDemo(type) {
+  const c = document.createElement('canvas');
+  c.width = 1200; c.height = 800;
+  const ctx = c.getContext('2d');
+  const gradients = {
+    mountain: ['#1e3a8a', '#3b82f6', '#8b5cf6', '#ec4899'],
+    sunset:   ['#7c2d12', '#f59e0b', '#ef4444', '#8b5cf6'],
+    forest:   ['#065f46', '#16a34a', '#84cc16', '#1e3a8a']
+  };
+  const colors = gradients[type];
+  const g = ctx.createLinearGradient(0, 0, 1200, 800);
+  colors.forEach((c, i) => g.addColorStop(i / (colors.length - 1), c));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 1200, 800);
+
+  for (let i = 0; i < 15; i++) {
+    ctx.beginPath();
+    ctx.arc(
+      Math.random() * 1200, Math.random() * 800,
+      Math.random() * 200 + 50,
+      0, Math.PI * 2
+    );
+    ctx.fillStyle = `rgba(255,255,255,${Math.random() * 0.15})`;
+    ctx.fill();
+  }
+
+  loadImageFromSrc(c.toDataURL());
+}
+
+function loadImageFromSrc(src) {
+  const img = new Image();
+  img.onload = () => {
+    state.img = img;
+    state.imgWidth = img.width;
+    state.imgHeight = img.height;
+    state.texts = [];
+    canvasSized = false;                 // ← forzar resize al cargar
+    document.getElementById('dropZone').classList.add('hidden');
+    document.getElementById('canvasWrapper').classList.remove('hidden');
+    document.getElementById('controls').classList.remove('controls-disabled');
+    document.getElementById('dropSidebar').classList.remove('hidden');
+    document.getElementById('toolbarInfo').textContent = `${img.width} × ${img.height} px`;
+    render(true);                        // ← forceResize
+    toast('Imagen cargada ✅');
+  };
+  img.onerror = () => toast('Error al cargar la imagen');
+  img.src = src;
+}
+
+// ============ FILTROS ============
+function setPreset(key) {
+  state.activePreset = key;
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === key);
+  });
+  render();                              // sin forceResize
+}
+
+function updateFilters() {
+  state.filters.brightness = +document.getElementById('brightness').value;
+  state.filters.contrast = +document.getElementById('contrast').value;
+  state.filters.saturate = +document.getElementById('saturate').value;
+  state.filters.hue = +document.getElementById('hue').value;
+  state.filters.blur = +document.getElementById('blur').value;
+  state.filters.rotate = +document.getElementById('rotate').value;
+  state.filters.scale = +document.getElementById('scale').value;
+
+  document.getElementById('brightnessVal').textContent = state.filters.brightness + '%';
+  document.getElementById('contrastVal').textContent = state.filters.contrast + '%';
+  document.getElementById('saturateVal').textContent = state.filters.saturate + '%';
+  document.getElementById('hueVal').textContent = state.filters.hue + '°';
+  document.getElementById('blurVal').textContent = state.filters.blur + 'px';
+  document.getElementById('rotateVal').textContent = state.filters.rotate + '°';
+  document.getElementById('scaleVal').textContent = state.filters.scale + '%';
+
+  render();                              // sin forceResize
+}
+
+function setRatio(ratio) {
+  state.ratio = ratio;
+  document.querySelectorAll('.ratio-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.ratio === ratio);
+  });
+  render(true);                          // ← forceResize (cambia tamaño)
+}
+
+// ============ RENDER ============
+function render(forceResize = false) {
+  if (!state.img) return;
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // Dimensiones objetivo
+  let w = state.imgWidth, h = state.imgHeight;
+  if (state.ratio !== 'free') {
+    const parts = state.ratio.split('/');
+    const targetRatio = parseFloat(parts[0]) / parseFloat(parts[1]);
+    const imgRatio = w / h;
+    if (imgRatio > targetRatio) {
+      w = h * targetRatio;
+    } else {
+      h = w / targetRatio;
+    }
+  }
+
+  // SOLO cambiar el tamaño intrínseco si es necesario
+  if (forceResize || !canvasSized || canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+    canvasSized = true;
+  }
+
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, w, h);
+
+  const presetFilter = PRESETS[state.activePreset]?.filter || 'none';
+  const adjustFilter = `brightness(${state.filters.brightness}%) contrast(${state.filters.contrast}%) saturate(${state.filters.saturate}%) hue-rotate(${state.filters.hue}deg) blur(${state.filters.blur}px)`;
+  const combined = presetFilter === 'none' ? adjustFilter : `${presetFilter} ${adjustFilter}`;
+  ctx.filter = combined;
+
+  ctx.save();
+  ctx.translate(w / 2, h / 2);
+  ctx.rotate(state.filters.rotate * Math.PI / 180);
+  ctx.scale(state.filters.scale / 100, state.filters.scale / 100);
+  ctx.drawImage(state.img, -state.imgWidth / 2, -state.imgHeight / 2, state.imgWidth, state.imgHeight);
+  ctx.restore();
+
+  state.texts.forEach(t => {
+    ctx.filter = 'none';
+    ctx.font = `bold ${t.size}px ${t.font}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.strokeStyle = t.stroke;
+    ctx.lineWidth = Math.max(2, t.size / 15);
+    ctx.strokeText(t.text, t.x, t.y);
+    ctx.fillStyle = t.color;
+    ctx.fillText(t.text, t.x, t.y);
+  });
+}
+
+// ============ TEXTO ============
+function addText() {
+  const text = document.getElementById('textInput').value.trim();
+  if (!text) { toast('Escribí algo primero'); return; }
+  if (!state.img) { toast('Cargá una imagen primero'); return; }
+
+  const fontSize = +document.getElementById('fontSize').value || 32;
+  state.history.push([...state.texts]);
+  state.texts.push({
+    text,
+    x: state.imgWidth / 2,
+    y: state.imgHeight / 2,
+    size: fontSize,
+    font: document.getElementById('fontSelect').value,
+    color: document.getElementById('textColor').value,
+    stroke: document.getElementById('textStroke').value
+  });
+
+  document.getElementById('undoBtn').style.display = 'inline-flex';
+  document.getElementById('textInput').value = '';
+  render();                              // sin forceResize
+  toast('Texto agregado');
+}
+
+function undoText() {
+  if (state.history.length === 0) return;
+  state.texts = state.history.pop();
+  if (state.texts.length === 0 && state.history.length === 0) {
+    document.getElementById('undoBtn').style.display = 'none';
+  }
+  render();                              // sin forceResize
+}
+
+// ============ DESCARGA ============
+function download() {
+  if (!state.img) { toast('Cargá una imagen primero'); return; }
+  const canvas = document.getElementById('canvas');
+  const quality = parseFloat(document.getElementById('quality').value);
+  const isPNG = quality === 1;
+
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pixelforge_${Date.now()}.${isPNG ? 'png' : 'jpg'}`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Imagen descargada 📥');
+  }, isPNG ? 'image/png' : 'image/jpeg', quality);
+}
+
+// ============ RESET ============
+function resetAll() {
+  state.filters = { brightness: 100, contrast: 100, saturate: 100, hue: 0, blur: 0, rotate: 0, scale: 100 };
+  state.activePreset = 'none';
+  state.ratio = 'free';
+  state.texts = [];
+  state.history = [];
+  document.getElementById('brightness').value = 100;
+  document.getElementById('contrast').value = 100;
+  document.getElementById('saturate').value = 100;
+  document.getElementById('hue').value = 0;
+  document.getElementById('blur').value = 0;
+  document.getElementById('rotate').value = 0;
+  document.getElementById('scale').value = 100;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.preset === 'none'));
+  document.querySelectorAll('.ratio-btn').forEach(b => b.classList.toggle('active', b.dataset.ratio === 'free'));
+  document.getElementById('undoBtn').style.display = 'none';
+  canvasSized = false;                   // ← nuevo
+  updateFilters();
+  render(true);                          // ← forceResize
+  toast('Todo reiniciado');
+}
+
+// ============ TOAST ============
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+    e.preventDefault();
+    undoText();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    download();
+  }
+});
+</script>
+</body>
+</html>
