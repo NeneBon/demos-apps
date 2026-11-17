@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FaltaUno — Organizá tu próximo plan</title>
+<style>
+  :root {
+    --primary: #b116f9;
+    --primary-dark: #710c79;
+    --success: #16a34a;
+    --danger: #dc268d;
+    --bg: #fee7fbbe;
+    --card: #ffffff;
+    --text: #1c1917;
+    --muted: #6c7178;
+    --border: #cd66f3;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+  body { background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px; overflow-x: hidden; }
+
+  .app { max-width: 720px; margin: 0 auto; position: relative; }
+
+  /* Header */
+  .header { text-align: center; margin-bottom: 24px; position: relative; z-index: 2; }
+  .header h1 { font-size: 28px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .header p { color: var(--muted); font-size: 14px; margin-top: 4px; }
+
+  /* Card base */
+  .card {
+    background: var(--card); border-radius: 16px; padding: 20px;
+    box-shadow: var(--shadow); margin-bottom: 16px;
+  }
+
+  /* ==== ZONA DECORATIVA DE LA PRIMERA VENTANA ==== */
+  .create-wrapper {
+    position: relative;
+    padding: 40px 10px;
+    margin-bottom: 16px;
+  }
+
+  /* Emojis flotantes alrededor */
+  .deco-emoji {
+    position: absolute;
+    font-size: 42px;
+    opacity: 0.85;
+    pointer-events: none;
+    user-select: none;
+    filter: drop-shadow(0 4px 6px rgba(177,22,249,.25));
+    animation: floatEmoji 4s ease-in-out infinite;
+    z-index: 1;
+  }
+  .deco-emoji.e1 { top: -8px;  left: -10px;  animation-delay: 0s; }
+  .deco-emoji.e2 { top: 30%;   right: -18px; animation-delay: .6s; font-size: 50px; }
+  .deco-emoji.e3 { bottom: -10px; left: 8%;  animation-delay: 1.2s; font-size: 38px; }
+  .deco-emoji.e4 { top: 12%;   left: -22px;  animation-delay: .3s; font-size: 34px; }
+  .deco-emoji.e5 { bottom: 8%; right: 4%;    animation-delay: 1.5s; font-size: 36px; }
+  .deco-emoji.e6 { top: -18px; right: 22%;   animation-delay: .9s; font-size: 32px; }
+  .deco-emoji.e7 { bottom: -14px; right: 30%; animation-delay: .4s; font-size: 30px; }
+
+  @keyframes floatEmoji {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-10px) rotate(6deg); }
+  }
+
+  /* Imagen decorativa tipo sticker */
+  .deco-sticker {
+    position: absolute;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid white;
+    box-shadow: 0 6px 14px rgba(113,12,121,.25);
+    z-index: 1;
+    pointer-events: none;
+    animation: floatSticker 5s ease-in-out infinite;
+  }
+  .deco-sticker.s1 { top: -30px; right: 40px; transform: rotate(-12deg); }
+  .deco-sticker.s2 { bottom: -30px; left: 30px; transform: rotate(10deg); animation-delay: 1s; width: 80px; height: 80px; }
+
+  @keyframes floatSticker {
+    0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); }
+    50%      { transform: translateY(-8px) rotate(var(--rot, 0deg)); }
+  }
+  .deco-sticker.s1 { --rot: -12deg; }
+  .deco-sticker.s2 { --rot: 10deg; }
+
+  /* Cinta decorativa superior */
+  .deco-ribbon {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(90deg, #fb24a1, #b116f9);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 4px 16px;
+    border-radius: 20px;
+    box-shadow: 0 4px 10px rgba(177,22,249,.35);
+    z-index: 2;
+    white-space: nowrap;
+  }
+
+  /* Formulario crear plan */
+  .form-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .form-row input, .form-row select {
+    flex: 1; min-width: 140px; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: 10px;
+    font-size: 14px; background: white;
+  }
+  .form-row input:focus, .form-row select:focus {
+    outline: none; border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(249,115,22,.15);
+  }
+  .btn-primary {
+    background: var(--primary); color: white; border: none;
+    padding: 12px 24px; border-radius: 10px; font-size: 14px;
+    font-weight: 600; cursor: pointer; transition: background .15s;
+  }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-ghost {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 8px 16px; border-radius: 10px; font-size: 13px; cursor: pointer;
+  }
+  .btn-ghost:hover { background: #f5f5f4; color: var(--text); }
+
+  /* Plan header */
+  .plan-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+  .plan-title h2 { font-size: 22px; }
+  .plan-title .meta { color: var(--muted); font-size: 13px; margin-top: 4px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .plan-type-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #fff7ed; color: var(--primary-dark);
+    padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  }
+
+  /* Barra de progreso */
+  .progress-section { margin-bottom: 16px; }
+  .progress-labels { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+  .progress-labels strong { color: var(--text); }
+  .progress-labels span { color: var(--muted); }
+  .progress-bar {
+    height: 10px; background: #f5f5f4; border-radius: 10px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; background: linear-gradient(90deg, var(--primary), #fb24a1);
+    border-radius: 10px; transition: width .4s ease;
+  }
+  .progress-fill.complete { background: linear-gradient(90deg, var(--success), #4ade80); }
+
+  /* Lista de ítems */
+  .items-list { display: flex; flex-direction: column; gap: 8px; }
+  .item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border-radius: 12px;
+    background: #fafaf9; border: 1px solid transparent;
+    transition: all .2s;
+  }
+  .item.claimed { background: #f0fdf4; border-color: #bbf7d0; }
+  .item.missing { background: #f8daff46; border-color: #bf00ff; }
+  .item.mine { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(249,115,22,.15); }
+
+  .item-icon { font-size: 22px; width: 32px; text-align: center; }
+  .item-info { flex: 1; }
+  .item-name { font-size: 14px; font-weight: 600; }
+  .item-detail { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .item-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: white;
+    flex-shrink: 0;
+  }
+  .item-avatar.empty {
+    background: #e7e5e4; color: #9ea4a8; font-size: 16px;
+  }
+
+  .item-action {
+    padding: 6px 14px; border-radius: 8px; border: none;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    background: var(--primary); color: white; transition: all .15s;
+    white-space: nowrap;
+  }
+  .item-action:hover { background: var(--primary-dark); }
+  .item-action.release {
+    background: none; color: var(--muted); border: 1px solid var(--border);
+  }
+  .item-action.release:hover { background: #f8e2fe; color: var(--danger); border-color: #fecaef; }
+
+  /* Agregar ítem */
+  .add-item {
+    display: flex; gap: 8px; margin-top: 12px;
+  }
+  .add-item input { flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; }
+  .add-item select { padding: 10px; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; }
+
+  /* Participantes */
+  .participants { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+  .participant {
+    display: flex; align-items: center; gap: 6px;
+    background: #f5f5f4; padding: 4px 10px 4px 4px;
+    border-radius: 20px; font-size: 12px; font-weight: 500;
+  }
+  .participant .dot { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: white; }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center; padding: 40px 20px; color: var(--muted);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state h3 { color: var(--text); margin-bottom: 6px; font-size: 18px; }
+  .empty-state p { font-size: 14px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: var(--text); color: white; padding: 12px 24px;
+    border-radius: 10px; font-size: 14px; opacity: 0;
+    transition: all .3s; z-index: 9999; pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* Resumen */
+  .summary-box {
+    background: #fafaf9; border-radius: 12px; padding: 14px;
+    font-family: 'Courier New', monospace; font-size: 12px;
+    white-space: pre-wrap; color: var(--muted); margin-top: 10px;
+    border: 1px dashed var(--border);
+  }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 600px) {
+    body { padding: 12px; }
+    .plan-title h2 { font-size: 18px; }
+    .item { padding: 10px; }
+    .item-action { padding: 6px 10px; font-size: 11px; }
+    .deco-emoji { font-size: 28px !important; }
+    .deco-sticker { width: 60px !important; height: 60px !important; }
+    .deco-emoji.e2, .deco-emoji.e4, .deco-emoji.e7 { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    <h1>🍖 FaltaUno</h1>
+    <p>Organizá tu próximo plan sin que nadie se olvide nada</p>
+  </div>
+
+  <!-- ==== PRIMERA VENTANA CON DECORACIÓN ==== -->
+  <div class="create-wrapper">
+    <!-- Cinta superior -->
+    <div class="deco-ribbon">✨ ¡ARMÁ LA JUNTADA! ✨</div>
+
+    <!-- Emojis flotantes alrededor -->
+    <span class="deco-emoji e1">🍖</span>
+    <span class="deco-emoji e2">🎉</span>
+    <span class="deco-emoji e3">🥤</span>
+    <span class="deco-emoji e4">🔥</span>
+    <span class="deco-emoji e5">🧺</span>
+    <span class="deco-emoji e6">🍔</span>
+    <span class="deco-emoji e7">🍻</span>
+
+    <!-- Stickers/imágenes decorativas (podés cambiar los src por imágenes reales) -->
+   <div class="deco-sticker s1" style="display:flex;align-items:center;justify-content:center;font-size:46px;background:#fff;">🍖</div>
+    <div class="deco-sticker s2" style="display:flex;align-items:center;justify-content:center;font-size:42px;background:#fff;">🍻</div>
+
+    <!-- Card de crear plan -->
+    <div class="card" id="createSection" style="position:relative;z-index:2;">
+      <h3 style="font-size:16px;margin-bottom:14px">Crear un plan</h3>
+      <div class="form-row">
+        <input id="planName" placeholder="Nombre del plan (ej: Asado del sábado)" maxlength="60">
+      </div>
+      <div class="form-row">
+        <input id="planDate" type="date">
+        <input id="planPlace" placeholder="Lugar" maxlength="40">
+        <select id="planType">
+          <option value="asado">🍖 Asado</option>
+          <option value="picnic">🧺 Picnic</option>
+          <option value="salida">🚗 Salida</option>
+          <option value="fiesta">🎉 Fiesta</option>
+          <option value="otro">📋 Otro</option>
+        </select>
+      </div>
+      <button class="btn-primary" id="createBtn" style="width:100%">Crear plan</button>
+    </div>
+  </div>
+
+  <!-- Plan activo (oculto hasta crear) -->
+  <div id="planSection" class="hidden">
+    <div class="card">
+      <div class="plan-header">
+        <div class="plan-title">
+          <h2 id="viewPlanName"></h2>
+          <div class="meta" id="viewPlanMeta"></div>
+        </div>
+        <span class="plan-type-badge" id="viewPlanType"></span>
+      </div>
+
+      <div class="progress-section">
+        <div class="progress-labels">
+          <strong id="progressText">0 / 0 ítems</strong>
+          <span id="progressPct">0%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div class="participants" id="participantsList"></div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="font-size:16px">¿Quién lleva qué?</h3>
+        <button class="btn-ghost" id="addMeBtn">+ Sumarme</button>
+      </div>
+
+      <div class="items-list" id="itemsList"></div>
+
+      <div class="add-item">
+        <input id="newItemName" placeholder="Agregar ítem (ej: hielo)" maxlength="40" onkeypress="if(event.key==='Enter')addItem()">
+        <select id="newItemCategory">
+          <option value="comida">🍔 Comida</option>
+          <option value="bebida">🥤 Bebida</option>
+          <option value="utensilio">🍽️ Utensilio</option>
+          <option value="otro">📦 Otro</option>
+        </select>
+        <button class="btn-primary" onclick="addItem()">+</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:16px;margin-bottom:12px">📋 Resumen del plan</h3>
+      <p style="font-size:13px;color:var(--muted)">Copiá y pegá esto en el grupo de WhatsApp:</p>
+      <div class="summary-box" id="summaryBox"></div>
+      <button class="btn-primary" onclick="copySummary()" style="margin-top:12px;width:100%">📋 Copiar resumen</button>
+    </div>
+
+    <button class="btn-ghost" onclick="resetPlan()" style="width:100%">Volver a empezar (borrar plan)</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ ESTADO ============
+let state = {
+  plan: null,
+  items: [],
+  participants: [],
+  me: null
+};
+
+const CATEGORIES = {
+  comida: { icon: '🍔', label: 'Comida' },
+  bebida: { icon: '🥤', label: 'Bebida' },
+  utensilio: { icon: '🍽️', label: 'Utensilio' },
+  otro: { icon: '📦', label: 'Otro' }
+};
+
+const COLORS = ['#f97316','#7c3aed','#16a34a','#dc2626','#0891b2','#ea580c','#ca8a04','#db2777'];
+
+// ============ PERSISTENCIA ============
+function save() {
+  localStorage.setItem('faltauno_state', JSON.stringify(state));
+}
+function load() {
+  const raw = localStorage.getItem('faltauno_state');
+  if (raw) {
+    try { state = JSON.parse(raw); } catch (e) { console.error(e); }
+  }
+}
+
+// ============ UTILIDADES ============
+function uid() { return Math.random().toString(36).slice(2, 9); }
+function randColor() { return COLORS[Math.floor(Math.random() * COLORS.length)]; }
+function initials(name) { return name.trim().slice(0, 2).toUpperCase(); }
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ============ CREAR PLAN ============
+document.getElementById('createBtn').onclick = createPlan;
+
+function createPlan() {
+  const name = document.getElementById('planName').value.trim();
+  const date = document.getElementById('planDate').value;
+  const place = document.getElementById('planPlace').value.trim();
+  const type = document.getElementById('planType').value;
+
+  if (!name) { toast('Poné un nombre al plan'); return; }
+
+  const me = { id: uid(), name: 'Tu', color: randColor() };
+
+  state = {
+    plan: { name, date, place, type },
+    items: defaultItemsFor(type),
+    participants: [me],
+    me
+  };
+
+  save();
+  render();
+  toast('¡Plan creado! 🎉');
+}
+
+function defaultItemsFor(type) {
+  const base = {
+    asado: [
+      { name: 'Carne', category: 'comida', qty: '1.5 kg' },
+      { name: 'Carbón', category: 'otro', qty: '1 bolsa' },
+      { name: 'Hielo', category: 'bebida', qty: '2 bolsas' },
+      { name: 'Bebidas', category: 'bebida', qty: '2 botellas' },
+      { name: 'Ensalada', category: 'comida', qty: '1 fuente' },
+      { name: 'Pan', category: 'comida', qty: '1 kg' },
+      { name: 'Platos', category: 'utensilio', qty: '1 paquete' }
+    ],
+    picnic: [
+      { name: 'Manta', category: 'utensilio', qty: '1' },
+      { name: 'Sándwiches', category: 'comida', qty: '10' },
+      { name: 'Frutas', category: 'comida', qty: '1 kg' },
+      { name: 'Agua', category: 'bebida', qty: '2 L' },
+      { name: 'Vasos', category: 'utensilio', qty: '1 paquete' }
+    ],
+    salida: [
+      { name: 'Combustible', category: 'otro', qty: 'lleno' },
+      { name: 'Snacks', category: 'comida', qty: '2 bolsas' },
+      { name: 'Música', category: 'otro', qty: 'playlist' }
+    ],
+    fiesta: [
+      { name: 'Hielo', category: 'bebida', qty: '3 bolsas' },
+      { name: 'Bebidas', category: 'bebida', qty: 'variadas' },
+      { name: 'Vasos', category: 'utensilio', qty: '1 paquete' },
+      { name: 'Snacks', category: 'comida', qty: '2 bolsas' },
+      { name: 'Música', category: 'otro', qty: 'parlante' }
+    ],
+    otro: []
+  };
+  return (base[type] || base.otro).map(i => ({
+    id: uid(), name: i.name, category: i.category,
+    detail: i.qty || '', claimedBy: null
+  }));
+}
+
+// ============ AGREGAR ÍTEM ============
+function addItem() {
+  const input = document.getElementById('newItemName');
+  const cat = document.getElementById('newItemCategory').value;
+  const name = input.value.trim();
+  if (!name) return;
+  state.items.push({ id: uid(), name, category: cat, detail: '', claimedBy: null });
+  input.value = '';
+  save();
+  render();
+}
+
+// ============ RECLAMAR / LIBERAR ============
+function toggleClaim(itemId) {
+  const item = state.items.find(i => i.id === itemId);
+  if (!item) return;
+  if (item.claimedBy === state.me.id) {
+    item.claimedBy = null;
+  } else if (!item.claimedBy) {
+    item.claimedBy = state.me.id;
+  } else {
+    toast('Ya lo lleva otra persona');
+    return;
+  }
+  save();
+  render();
+}
+
+// ============ SUMAR PARTICIPANTE ============
+document.getElementById('addMeBtn').onclick = () => {
+  const name = prompt('¿Cómo te llamás?');
+  if (!name) return;
+  const p = { id: uid(), name: name.trim(), color: randColor() };
+  state.participants.push(p);
+  state.me = p;
+  save();
+  render();
+  toast(`Ahora sos ${p.name}`);
+};
+
+// ============ RENDER ============
+function render() {
+  if (!state.plan) {
+    document.getElementById('createSection').classList.remove('hidden');
+    document.getElementById('planSection').classList.add('hidden');
+    return;
+  }
+  document.getElementById('createSection').classList.add('hidden');
+  document.getElementById('planSection').classList.remove('hidden');
+
+  document.getElementById('viewPlanName').textContent = state.plan.name;
+  const typeMeta = {
+    asado: '🍖 Asado', picnic: '🧺 Picnic', salida: '🚗 Salida',
+    fiesta: '🎉 Fiesta', otro: '📋 Plan'
+  }[state.plan.type] || '📋 Plan';
+  document.getElementById('viewPlanType').textContent = typeMeta;
+
+  let metaParts = [];
+  if (state.plan.date) {
+    const d = new Date(state.plan.date + 'T00:00:00');
+    metaParts.push('📅 ' + d.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' }));
+  }
+  if (state.plan.place) metaParts.push('📍 ' + state.plan.place);
+  document.getElementById('viewPlanMeta').innerHTML = metaParts.join(' · ') || 'Sin fecha ni lugar';
+
+  const total = state.items.length;
+  const claimed = state.items.filter(i => i.claimedBy).length;
+  const pct = total ? Math.round(claimed / total * 100) : 0;
+  document.getElementById('progressText').textContent = `${claimed} / ${total} ítems cubiertos`;
+  document.getElementById('progressPct').textContent = `${pct}%`;
+  const fill = document.getElementById('progressFill');
+  fill.style.width = pct + '%';
+  fill.classList.toggle('complete', pct === 100 && total > 0);
+
+  document.getElementById('participantsList').innerHTML = state.participants.map(p => `
+    <div class="participant">
+      <span class="dot" style="background:${p.color}">${initials(p.name)}</span>
+      ${p.name}${p.id === state.me.id ? ' (tu)' : ''}
+    </div>
+  `).join('');
+
+  const list = document.getElementById('itemsList');
+  if (state.items.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">📝</div><h3>No hay ítems</h3><p>Agregá el primero abajo</p></div>';
+  } else {
+    list.innerHTML = state.items.map(item => renderItem(item)).join('');
+  }
+
+  updateSummary();
+}
+
+function renderItem(item) {
+  const cat = CATEGORIES[item.category] || CATEGORIES.otro;
+  const claimer = item.claimedBy
+    ? state.participants.find(p => p.id === item.claimedBy)
+    : null;
+
+  let classes = 'item';
+  if (item.claimedBy) classes += ' claimed';
+  else classes += ' missing';
+  if (item.claimedBy === state.me.id) classes += ' mine';
+
+  const avatar = claimer
+    ? `<div class="item-avatar" style="background:${claimer.color}">${initials(claimer.name)}</div>`
+    : `<div class="item-avatar empty">?</div>`;
+
+  const isMine = item.claimedBy === state.me.id;
+  const actionLabel = isMine ? 'Soltar' : (item.claimedBy ? 'Ocupado' : 'Lo llevo');
+  const actionClass = isMine ? 'item-action release' : 'item-action';
+  const disabled = item.claimedBy && !isMine ? 'disabled' : '';
+
+  return `
+    <div class="${classes}">
+      <div class="item-icon">${cat.icon}</div>
+      <div class="item-info">
+        <div class="item-name">${item.name}</div>
+        <div class="item-detail">${cat.label}${item.detail ? ' · ' + item.detail : ''}</div>
+      </div>
+      ${avatar}
+      <button class="${actionClass}" ${disabled} onclick="toggleClaim('${item.id}')">${actionLabel}</button>
+    </div>
+  `;
+}
+
+// ============ RESUMEN ============
+function updateSummary() {
+  if (!state.plan) return;
+  const lines = [];
+  lines.push(`🍖 ${state.plan.name}`);
+  if (state.plan.date) {
+    const d = new Date(state.plan.date + 'T00:00:00');
+    lines.push(`📅 ${d.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })}`);
+  }
+  if (state.plan.place) lines.push(`📍 ${state.plan.place}`);
+  lines.push('');
+  lines.push('Lo que lleva cada uno:');
+  state.items.forEach(item => {
+    const claimer = state.participants.find(p => p.id === item.claimedBy);
+    const cat = CATEGORIES[item.category] || CATEGORIES.otro;
+    const check = claimer ? '✅' : '❌';
+    lines.push(`${check} ${cat.icon} ${item.name}${item.detail ? ' (' + item.detail + ')' : ''} — ${claimer ? claimer.name : 'FALTA'}`);
+  });
+  document.getElementById('summaryBox').textContent = lines.join('\n');
+}
+
+function copySummary() {
+  const text = document.getElementById('summaryBox').textContent;
+  navigator.clipboard.writeText(text).then(() => toast('Resumen copiado ✅'));
+}
+
+// ============ RESET ============
+function resetPlan() {
+  if (!confirm('¿Borrar el plan actual?')) return;
+  state = { plan: null, items: [], participants: [], me: null };
+  save();
+  document.getElementById('planName').value = '';
+  document.getElementById('planDate').value = '';
+  document.getElementById('planPlace').value = '';
+  render();
+}
+
+// ============ INICIO ============
+load();
+render();
+</script>
+</body>
+</html>
